@@ -16,6 +16,7 @@
 #define __JOYSTICK_H__
 
 #include <iostream>
+#include <cstdint>
 #include <string>
 #include <sys/types.h>
 #include <sys/stat.h>
