@@ -104,9 +104,9 @@ code edit. Two families worth knowing about, both currently left at defaults:
 --env.observations.actor.terms.joint-pos.delay-max-lag 2
 ```
 
-Changing the observation layout also changes the ONNX input width, so the
-deploy template must be updated to match (see the caveat under
-`package_g1_23dof_mimic.py`).
+Changing the observation layout also changes the ONNX input width; the deploy
+side follows automatically, since `deploy.yaml` is generated from the run's env
+cfg rather than a template.
 
 ### `play.py`
 
@@ -164,12 +164,23 @@ python scripts/package_g1_23dof_mimic.py \
 `--trigger` is a joystick DSL expression (see `deploy/include/unitree_joystick_dsl.hpp`);
 omit it and the script prompts. `--overwrite` replaces an existing bundle.
 
-> **Caveat:** `deploy.yaml` is copied from a static template
-> (`config/policy/mimic/frogger/v0`), not derived from the trained env cfg.
-> Gains, action scales and the observation layout are correct only while the
-> training config matches that template. Change the observation set — adding
-> history, for example — and the deployed policy will silently read a
-> mis-ordered vector of the right length. Fix the template first.
+`deploy.yaml` is generated from the run's own `params/env.yaml` (see
+`gen_deploy_yaml.py`), so gains, action scales and the observation layout always
+match what was trained. A run without a dumped env cfg is rejected rather than
+falling back to a template.
+
+### `gen_deploy_yaml.py`
+
+Builds a `deploy.yaml` from a training run. Called automatically by the
+packaging script; run it directly to inspect what a run would deploy as:
+
+```bash
+python scripts/gen_deploy_yaml.py --run-dir logs/rsl_rl/g1_23dof_tracking/<run>
+```
+
+An observation term whose function has no C++ implementation (`base_lin_vel`
+and `motion_anchor_pos_b`, i.e. the state-estimation variant) fails here with a
+clear error instead of at the robot.
 
 ---
 
