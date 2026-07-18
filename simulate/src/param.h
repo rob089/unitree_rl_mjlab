@@ -26,6 +26,14 @@ inline struct SimulationConfig
     int enable_elastic_band;
     int band_attached_link = 0;
 
+    // Headless viewer (unitree_mujoco_headless only)
+    int viewer_port = 0; // 0 disables the offscreen viewer
+    int start_paused = 0; // begin frozen so the robot does not fall while you connect
+    std::filesystem::path init_qpos; // optional file with a qpos vector used on reset
+    int viewer_fps = 20;
+    int viewer_width = 960;
+    int viewer_height = 540;
+
     void load_from_yaml(const std::string &filename)
     {
         auto cfg = YAML::LoadFile(filename);
@@ -63,6 +71,14 @@ inline po::variables_map helper(int argc, char** argv)
         ("network,n", po::value<std::string>(&config.interface), "DDS network interface; -n eth0")
         ("robot,r", po::value<std::string>(&config.robot), "Robot type; -r go2")
         ("scene,s", po::value<std::filesystem::path>(&config.robot_scene), "Robot scene file; -s scene_terrain.xml")
+        ("viewer_port,p", po::value<int>(&config.viewer_port), "Headless viewer HTTP port, 0=off; -p 8080")
+        ("init_qpos", po::value<std::filesystem::path>(&config.init_qpos),
+            "File with a whitespace-separated qpos vector applied on reset")
+        ("paused", po::bool_switch()->notifier([](bool v){ if(v) config.start_paused = 1; }),
+            "Start with physics paused; press 'g' to run")
+        ("viewer_fps", po::value<int>(&config.viewer_fps), "Headless viewer frame rate")
+        ("viewer_width", po::value<int>(&config.viewer_width), "Headless viewer width")
+        ("viewer_height", po::value<int>(&config.viewer_height), "Headless viewer height")
     ;
 
     po::variables_map vm;
