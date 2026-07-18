@@ -170,7 +170,12 @@ void State_Mimic::enter()
         while (policy_thread_running)
         {
             env->robot->update();
-            motion->update(env->episode_length * env->step_dt + time_range_[0]);
+            // step() increments episode_length before it builds observations, so
+            // the reference must be advanced to the post-increment phase here.
+            // Using episode_length directly pairs the observation at step k+1
+            // with motion frame k - a constant 20 ms lag that training, which
+            // samples command and state on the same tick, never sees.
+            motion->update((env->episode_length + 1) * env->step_dt + time_range_[0]);
             env->step();
 
             // Sleep
