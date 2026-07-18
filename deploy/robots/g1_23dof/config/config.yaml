@@ -1,5 +1,5 @@
 FSM:
-  _: # enabled fsms
+  _:
     Passive:
       id: 1
     FixStand:
@@ -7,68 +7,204 @@ FSM:
     Velocity:
       id: 3
       type: RLBase
-
-    Mimic_Dance1_subject2:
+    Mimic_fight_punch:
+      id: 4
+      type: Mimic
+    Mimic_fight_kick:
       id: 5
       type: Mimic
-
+    Mimic_fight_wave:
+      id: 6
+      type: Mimic
   Passive:
-    transitions: 
+    transitions:
       FixStand: LT + up.on_pressed
-    mode: [
-      1,1,1,1,1,1,
-      1,1,1,1,1,1,
-      1,1,1,
-      1,1,1,1,1,1,1,
-      1,1,1,1,1,1,1,
-    ]
-    kd: [
-      3,3,3,3,3,3,
-      3,3,3,3,3,3,
-      3,3,3,
-      3,3,3,3,3,3,3,  
-      3,3,3,3,3,3,3,  
-    ]
+    mode:
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    kd:
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
+    - 3
   FixStand:
-    transitions: 
-      Passive: LT + B.on_pressed
-      Velocity: RT + A.on_pressed
-    kp: [
-      100., 100., 100., 150., 40., 40.,
-      100., 100., 100., 150., 40., 40.,
-      200,200,200,
-      40,40,40,40,40,40,40,
-      40,40,40,40,40,40,40,
-    ]
-    kd: [
-      2,2,2,4,2,2,
-      2,2,2,4,2,2,
-      5,5,5,
-      10,10,10,10,10,10,10,
-      10,10,10,10,10,10,10,
-    ]
-    ts: [0, 3]
-    qs: [
-      [],
-      [ -0.1, 0,0,0.3,-0.2,0,
-        -0.1, 0,0,0.3,-0.2,0,
-        0,0,0,
-        0.35, 0.18,0,0.87,0,0,0,
-        0.35,-0.18,0,0.87,0,0,0
-      ]
-    ]
-  Velocity:
-    transitions: 
-      Passive: LT + B.on_pressed
-      Mimic_Dance1_subject2: RB + A.on_pressed
-    policy_dir: config/policy/velocity
-
-  Mimic_Dance1_subject2:
     transitions:
       Passive: LT + B.on_pressed
       Velocity: RT + A.on_pressed
-
-    motion_file: config/policy/mimic/dance1_subject2/params/dance1_subject2.npz
-    policy_dir: config/policy/mimic/dance1_subject2/
+    kp:
+    - 100.0
+    - 100.0
+    - 100.0
+    - 150.0
+    - 40.0
+    - 40.0
+    - 100.0
+    - 100.0
+    - 100.0
+    - 150.0
+    - 40.0
+    - 40.0
+    - 200
+    - 200
+    - 200
+    - 40
+    - 40
+    - 40
+    - 40
+    - 40
+    - 40
+    - 40
+    - 40
+    - 40
+    - 40
+    - 40
+    - 40
+    - 40
+    - 40
+    kd:
+    - 2
+    - 2
+    - 2
+    - 4
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 4
+    - 2
+    - 2
+    - 5
+    - 5
+    - 5
+    - 10
+    - 10
+    - 10
+    - 10
+    - 10
+    - 10
+    - 10
+    - 10
+    - 10
+    - 10
+    - 10
+    - 10
+    - 10
+    - 10
+    ts:
+    - 0
+    - 3
+    qs:
+    - []
+    - - -0.1
+      - 0
+      - 0
+      - 0.3
+      - -0.2
+      - 0
+      - -0.1
+      - 0
+      - 0
+      - 0.3
+      - -0.2
+      - 0
+      - 0
+      - 0
+      - 0
+      - 0.35
+      - 0.18
+      - 0
+      - 0.87
+      - 0
+      - 0
+      - 0
+      - 0.35
+      - -0.18
+      - 0
+      - 0.87
+      - 0
+      - 0
+      - 0
+  Velocity:
+    transitions:
+      Passive: LT + B.on_pressed
+      Mimic_fight_punch: RB + X.on_pressed
+      Mimic_fight_kick: RB + Y.on_pressed
+      Mimic_fight_wave: RB + B.on_pressed
+    policy_dir: config/policy/velocity
+  Mimic_fight_punch:
+    transitions:
+      Passive: LT + B.on_pressed
+      Velocity: RT + A.on_pressed
+    motion_file: config/policy/mimic/fight_punch/v0/params/fight1_subject3_frames_220_260.npz
+    policy_dir: config/policy/mimic/fight_punch/v0
+    time_start: 0.0
+    time_end: 500.0
+  Mimic_fight_kick:
+    transitions:
+      Passive: LT + B.on_pressed
+      Velocity: RT + A.on_pressed
+    motion_file: config/policy/mimic/fight_kick/v0/params/fight1_subject3_frames_5100_5160.npz
+    policy_dir: config/policy/mimic/fight_kick/v0
+    time_start: 0.0
+    time_end: 500.0
+  Mimic_fight_wave:
+    transitions:
+      Passive: LT + B.on_pressed
+      Velocity: RT + A.on_pressed
+    motion_file: config/policy/mimic/fight_wave/v0/params/fight1_subject3_frames_7080_7260.npz
+    policy_dir: config/policy/mimic/fight_wave/v0
     time_start: 0.0
     time_end: 500.0
