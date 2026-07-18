@@ -136,12 +136,16 @@ State_Mimic::State_Mimic(int state_mode, std::string state_string)
 void State_Mimic::enter()
 {
     // set gain
+    // Gains must be indexed through joint_ids_map, exactly like the position
+    // targets in run(). Indexing by policy id leaves SDK motors 23-26 (right
+    // shoulder roll/yaw, elbow, wrist roll) holding the previous state's gains.
     for (int i = 0; i < env->robot->data.joint_stiffness.size(); i++)
     {
-        lowcmd->msg_.motor_cmd()[i].kp() = env->robot->data.joint_stiffness[i];
-        lowcmd->msg_.motor_cmd()[i].kd() = env->robot->data.joint_damping[i];
-        lowcmd->msg_.motor_cmd()[i].dq() = 0;
-        lowcmd->msg_.motor_cmd()[i].tau() = 0;
+        const int m = env->robot->data.joint_ids_map[i];
+        lowcmd->msg_.motor_cmd()[m].kp() = env->robot->data.joint_stiffness[i];
+        lowcmd->msg_.motor_cmd()[m].kd() = env->robot->data.joint_damping[i];
+        lowcmd->msg_.motor_cmd()[m].dq() = 0;
+        lowcmd->msg_.motor_cmd()[m].tau() = 0;
     }
 
     motion = motion_; // set for specific motion

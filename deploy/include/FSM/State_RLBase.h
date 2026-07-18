@@ -15,12 +15,14 @@ public:
     void enter()
     {
         // set gain
+        // Same indexing rule as the position targets: policy id -> SDK motor id.
         for (int i = 0; i < env->robot->data.joint_stiffness.size(); ++i)
         {
-            lowcmd->msg_.motor_cmd()[i].kp() = env->robot->data.joint_stiffness[i];
-            lowcmd->msg_.motor_cmd()[i].kd() = env->robot->data.joint_damping[i];
-            lowcmd->msg_.motor_cmd()[i].dq() = 0;
-            lowcmd->msg_.motor_cmd()[i].tau() = 0;
+            const int m = env->robot->data.joint_ids_map[i];
+            lowcmd->msg_.motor_cmd()[m].kp() = env->robot->data.joint_stiffness[i];
+            lowcmd->msg_.motor_cmd()[m].kd() = env->robot->data.joint_damping[i];
+            lowcmd->msg_.motor_cmd()[m].dq() = 0;
+            lowcmd->msg_.motor_cmd()[m].tau() = 0;
         }
 
         env->robot->update();
