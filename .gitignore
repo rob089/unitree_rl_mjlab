@@ -15,3 +15,12 @@ simulate/build
 # Python bytecode
 __pycache__/
 *.py[cod]
+
+# Trained policy blobs. One ~1MB file per retrain, so they churn constantly and
+# would bloat history fast. Re-export from a checkpoint with:
+#   python scripts/export_policy.py --task-id <id> --checkpoint <run>/model_N.pt \
+#     --output-dir deploy/robots/g1_23dof/config/policy/<name>/v0/exported
+# Reference motions (params/*.npz) stay tracked on purpose: they change only when
+# a clip is re-cut or the converter changes, and the policy is only valid against
+# the exact motion it was trained on.
+deploy/robots/*/config/policy/**/exported/*.onnx
