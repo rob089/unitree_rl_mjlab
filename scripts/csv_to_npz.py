@@ -30,6 +30,9 @@ class MotionLoader:
     output_fps: int,
     device: torch.device | str,
     line_range: tuple[int, int] | None = None,
+    transition_time: float = 0.0,
+    default_dof_pos: dict[str, float] | None = None,
+    default_root_height: float | None = None,
   ):
     self.motion_file = motion_file
     self.input_fps = input_fps
@@ -39,8 +42,11 @@ class MotionLoader:
     self.current_idx = 0
     self.device = device
     self.line_range = line_range
+    self.transition_time = transition_time
     self._load_motion()
     self._interpolate_motion()
+    if transition_time > 0.0:
+      self._prepend_stand_transition(default_dof_pos, default_root_height)
     self._compute_velocities()
 
   def _load_motion(self):
@@ -95,6 +101,86 @@ class MotionLoader:
       f"input fps: {self.input_fps}, "
       f"output frames: {self.output_frames}, "
       f"output fps: {self.output_fps}"
+    )
+
+  def _prepend_stand_transition(
+    self,
+    default_dof_pos: dict[str, float] | None,
+    default_root_height: float | None,
+  ):
+    """Prepends a synthetic transition from a neutral stand into frame 0.
+
+    LAFAN1 clips are cut out of continuous performances, so frame 0 is almost
+    never a standstill. Training therefore only ever initialises the policy in
+    poses it cannot reach on hardware, where the motion has to be entered from
+    whatever pose the robot is already holding. Prepending the transition makes
+    phase 0 the stand pose, so the policy learns the entry itself.
+
+    Uses a cubic Hermite: zero velocity at the stand, and the clip's own initial
+    velocity at the seam, so no discontinuity is introduced at either end. The
+    segment is kinematic, not dynamically feasible - it only has to funnel the
+    state into the reference motion.
+    """
+    n = int(round(self.transition_time * self.output_fps))
+    if n <= 0:
+      return
+    if default_dof_pos is None or default_root_height is None:
+      raise ValueError("transition_time > 0 requires default_dof_pos and default_root_height")
+
+    dt = self.output_dt
+    duration = n * dt
+
+    # Endpoint state: the clip's first frame, with its own initial velocity.
+    p1_dof = self.motion_dof_poss[0]
+    p1_pos = self.motion_base_poss[0]
+    q1 = self.motion_base_rots[0]
+    if self.output_frames > 1:
+      v1_dof = (self.motion_dof_poss[1] - p1_dof) / dt
+      v1_pos = (self.motion_base_poss[1] - p1_pos) / dt
+    else:
+      v1_dof = torch.zeros_like(p1_dof)
+      v1_pos = torch.zeros_like(p1_pos)
+
+    # Start state: standing at the clip's starting ground position, facing the
+    # same way. Joints not covered by the robot keep their frame-0 value.
+    p0_dof = p1_dof.clone()
+    for name, value in default_dof_pos.items():
+      p0_dof[G1_29DOF_JOINTS.index(name)] = value
+    p0_pos = p1_pos.clone()
+    p0_pos[2] = default_root_height
+
+    # Upright, yaw-only version of the clip's starting orientation.
+    w, x, y, z = q1[0], q1[1], q1[2], q1[3]
+    yaw = torch.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+    q0 = torch.stack(
+      [torch.cos(yaw / 2), torch.zeros_like(yaw), torch.zeros_like(yaw), torch.sin(yaw / 2)]
+    ).to(q1.device)
+
+    s = torch.arange(n, device=self.device, dtype=torch.float32) / n  # [0, 1)
+    s = s.unsqueeze(1)
+    h00 = 2 * s**3 - 3 * s**2 + 1
+    h10 = s**3 - 2 * s**2 + s
+    h01 = -2 * s**3 + 3 * s**2
+    h11 = s**3 - s**2
+
+    dof = h00 * p0_dof + h10 * duration * 0.0 + h01 * p1_dof + h11 * duration * v1_dof
+    pos = h00 * p0_pos + h10 * duration * 0.0 + h01 * p1_pos + h11 * duration * v1_pos
+
+    # Rotation: smoothstep slerp, which is smooth enough for the entry.
+    blend = (3 * s**2 - 2 * s**3).squeeze(1)
+    rots = torch.zeros((n, 4), device=self.device, dtype=self.motion_base_rots.dtype)
+    for i in range(n):
+      rots[i] = quat_slerp(q0, q1, float(blend[i]))
+
+    self.motion_dof_poss = torch.cat([dof.to(self.motion_dof_poss.dtype), self.motion_dof_poss])
+    self.motion_base_poss = torch.cat([pos.to(self.motion_base_poss.dtype), self.motion_base_poss])
+    self.motion_base_rots = torch.cat([rots, self.motion_base_rots])
+    self.output_frames += n
+    self.duration = (self.output_frames - 1) * self.output_dt
+
+    print(
+      f"Prepended {n} stand-transition frames ({self.transition_time:.2f}s); "
+      f"total frames: {self.output_frames}"
     )
 
   def _lerp(
@@ -182,6 +268,39 @@ class MotionLoader:
     return state, reset_flag
 
 
+G1_29DOF_JOINTS = [
+  "left_hip_pitch_joint",
+  "left_hip_roll_joint",
+  "left_hip_yaw_joint",
+  "left_knee_joint",
+  "left_ankle_pitch_joint",
+  "left_ankle_roll_joint",
+  "right_hip_pitch_joint",
+  "right_hip_roll_joint",
+  "right_hip_yaw_joint",
+  "right_knee_joint",
+  "right_ankle_pitch_joint",
+  "right_ankle_roll_joint",
+  "waist_yaw_joint",
+  "waist_roll_joint",
+  "waist_pitch_joint",
+  "left_shoulder_pitch_joint",
+  "left_shoulder_roll_joint",
+  "left_shoulder_yaw_joint",
+  "left_elbow_joint",
+  "left_wrist_roll_joint",
+  "left_wrist_pitch_joint",
+  "left_wrist_yaw_joint",
+  "right_shoulder_pitch_joint",
+  "right_shoulder_roll_joint",
+  "right_shoulder_yaw_joint",
+  "right_elbow_joint",
+  "right_wrist_roll_joint",
+  "right_wrist_pitch_joint",
+  "right_wrist_yaw_joint",
+]
+
+
 def run_sim(
   sim: Simulation,
   scene: Scene,
@@ -193,17 +312,37 @@ def run_sim(
   render,
   line_range,
   renderer: OffscreenRenderer | None = None,
+  transition_time: float = 0.0,
 ):
+  robot: Entity = scene["robot"]
+  robot_joint_indexes = robot.find_joints(joint_names, preserve_order=True)[0]
+
+  # The stand pose the transition starts from is the robot's own default, so it
+  # matches what FixStand holds at deploy time.
+  default_joint_pos = robot.data.default_joint_pos[0, robot_joint_indexes]
+  default_dof_pos = {
+    name: float(default_joint_pos[i]) for i, name in enumerate(joint_names)
+  }
+  default_root_height = float(robot.data.default_root_state[0, 2])
+
   motion = MotionLoader(
     motion_file=input_file,
     input_fps=input_fps,
     output_fps=output_fps,
     device=sim.device,
     line_range=line_range,
+    transition_time=transition_time,
+    default_dof_pos=default_dof_pos,
+    default_root_height=default_root_height,
   )
-
-  robot: Entity = scene["robot"]
-  robot_joint_indexes = robot.find_joints(joint_names, preserve_order=True)[0]
+  if motion.motion_dof_poss.shape[1] != len(G1_29DOF_JOINTS):
+    raise ValueError(
+      f"Expected {len(G1_29DOF_JOINTS)} CSV joint columns, got "
+      f"{motion.motion_dof_poss.shape[1]}"
+    )
+  source_joint_indexes = torch.tensor(
+    [G1_29DOF_JOINTS.index(name) for name in joint_names], device=sim.device
+  )
 
   log: dict[str, Any] = {
     "fps": [output_fps],
@@ -256,8 +395,8 @@ def run_sim(
 
     joint_pos = robot.data.default_joint_pos.clone()
     joint_vel = robot.data.default_joint_vel.clone()
-    joint_pos[:, robot_joint_indexes] = motion_dof_pos
-    joint_vel[:, robot_joint_indexes] = motion_dof_vel
+    joint_pos[:, robot_joint_indexes] = motion_dof_pos[:, source_joint_indexes]
+    joint_vel[:, robot_joint_indexes] = motion_dof_vel[:, source_joint_indexes]
     robot.write_joint_state_to_sim(joint_pos, joint_vel)
 
     sim.forward()
@@ -318,6 +457,7 @@ def main(
   device: str = "cuda:0",
   render: bool = False,
   line_range: tuple[int, int] | None = None,
+  transition_time: float = 0.75,
 ):
   """Replay motion from CSV file and output to npz file.
 
@@ -329,6 +469,8 @@ def main(
     device: Device to use.
     render: Whether to render the simulation and save a video.
     line_range: Range of lines to process from the CSV file.
+    transition_time: Seconds of synthetic stand-to-first-frame motion to prepend
+      (0 disables). Makes phase 0 a pose the robot can actually be in at deploy.
   """
   sim_cfg = SimulationCfg()
   sim_cfg.mujoco.timestep = 1.0 / output_fps
@@ -435,6 +577,7 @@ def main(
     render=render,
     line_range=line_range,
     renderer=renderer,
+    transition_time=transition_time,
   )
 
 
