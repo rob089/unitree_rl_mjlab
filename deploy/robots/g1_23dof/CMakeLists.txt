@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(Boost REQUIRED COMPONENTS program_options)
 find_package(yaml-cpp REQUIRED)
 find_package(ZLIB REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     set(ONNXRUNTIME_DIR "${PROJECT_SOURCE_DIR}/../../thirdparty/onnxruntime-linux-x64-1.22.0")
@@ -21,6 +23,7 @@ include_directories(
   ${ONNXRUNTIME_DIR}/include
   ${PROJECT_SOURCE_DIR}/../../include/
   ${PROJECT_SOURCE_DIR}/../../thirdparty/cnpy
+  ${ZLIB_INCLUDE_DIRS}
 )
 
 file(GLOB CNPY_SRC ${PROJECT_SOURCE_DIR}/../../thirdparty/cnpy/*.cpp)
@@ -35,7 +38,8 @@ link_libraries(
   pthread
   Boost::program_options
   yaml-cpp
-  fmt
+  spdlog::spdlog
+  fmt::fmt
   ${ONNXRUNTIME_DIR}/lib/libonnxruntime.so.1.22.0
   cnpy_lib
   ZLIB::ZLIB
